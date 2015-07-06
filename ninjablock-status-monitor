@@ -1,0 +1,14 @@
+#!/usr/bin/env perl
+use Mojolicious::Lite;
+use Data::Dumper;
+
+plugin Config => { file => 'config.conf' };
+my $url = app->config( 'url' );
+my $passphrase = app->config( 'ninjablock_api_passphrase' );
+my $ua = Mojo::UserAgent->new;
+
+my $json = $ua->get( $url => { 'X-NinjaBlock-API' => $passphrase })->res->json;
+
+my $latest_outdoor = $json->{ outdoor }{ latest };
+my $latest_indoor = $json->{ indoor }{ latest };
+
