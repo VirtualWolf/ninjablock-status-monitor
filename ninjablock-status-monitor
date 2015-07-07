@@ -1,14 +1,52 @@
 #!/usr/bin/env perl
 use Mojolicious::Lite;
-use Data::Dumper;
+use Mojo::JSON qw(decode_json);
+use DateTime;
+use DateTime::Format::Strptime;
+use Email::Sender::Simple qw(sendmail);
+use Email::Simple;
 
 plugin Config => { file => 'config.conf' };
-my $url = app->config( 'url' );
-my $passphrase = app->config( 'ninjablock_api_passphrase' );
-my $ua = Mojo::UserAgent->new;
+my $url         = app->config( 'url' );
+my $passphrase  = app->config( 'ninjablock_api_passphrase' );
 
-my $json = $ua->get( $url => { 'X-NinjaBlock-API' => $passphrase })->res->json;
+my $ua          = Mojo::UserAgent->new;
+my $tx          = $ua->get( $url => { 'X-NinjaBlock-API' => 'sdfsfs' });
+my $now         = DateTime->now( time_zone => 'Australia/Sydney' );
 
-my $latest_outdoor = $json->{ outdoor }{ latest };
-my $latest_indoor = $json->{ indoor }{ latest };
+if ( my $res = $tx->success ) {
+    my @locations = qw(outdoor indoor);
+    my $json      = decode_json $res->body;
 
+    for my $location ( @locations ) {
+        my $latest = DateTime->from_epoch( epoch => $json->{ $location }{ latest } / 1000 )->set_time_zone( 'Australia/Sydney' );
+        my $delta  = $now->delta_ms( $latest );
+
+        if ( $delta->{ minutes } > 30 ) {
+            my $formatter = DateTime::Format::Strptime->new( pattern => '%e %B %Y, %H:%M' );
+            $latest->set_formatter( $formatter );
+
+            my $email = Email::Simple->create(
+                header => [
+                    To      => 'user@example.com',
+                    From    => 'ninjablock@example.com',
+                    Subject => "$location: No updates since $latest.",
+                ],
+                body        => "Uh oh.\n", );
+
+                sendmail ( $email );
+        }
+    }
+}
+else {
+    my $err = $tx->error;
+
+    my $email = Email::Simple->create(
+        header => [
+            To      => 'user@example.com',
+            From    => 'ninjablock@example.com',
+            Subject => "Error contacting API: $err->{code} $err->{message}",
+        ],
+        body => "Uh oh.\n", );
+        sendmail ( $email );
+}
