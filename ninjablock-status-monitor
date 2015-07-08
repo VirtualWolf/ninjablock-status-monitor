@@ -11,7 +11,7 @@ my $url         = app->config( 'url' );
 my $passphrase  = app->config( 'ninjablock_api_passphrase' );
 
 my $ua          = Mojo::UserAgent->new;
-my $tx          = $ua->get( $url => { 'X-NinjaBlock-API' => 'sdfsfs' });
+my $tx          = $ua->get( $url => { 'X-NinjaBlock-API' => $passphrase });
 my $now         = DateTime->now( time_zone => 'Australia/Sydney' );
 
 if ( my $res = $tx->success ) {
