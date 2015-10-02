@@ -1,14 +1,18 @@
 #!/usr/bin/env perl
-use Mojolicious::Lite;
+use Cwd qw(abs_path);
+use Config::Simple;
+use Mojo::UserAgent;
 use Mojo::JSON qw(decode_json);
 use DateTime;
 use DateTime::Format::Strptime;
 use Email::Sender::Simple qw(sendmail);
 use Email::Simple;
 
-plugin Config => { file => 'config.conf' };
-my $url         = app->config( 'url' );
-my $passphrase  = app->config( 'ninjablock_api_passphrase' );
+my ($path)      = abs_path($0) =~ m/(.*)ninjablock-status-monitor/i;
+$config         = new Config::Simple("$path/config.ini") or die Config::Simple->error();
+
+my $url         = $config->param('url');
+my $passphrase  = $config->param('ninjablock-api-passphrase');
 
 my $ua          = Mojo::UserAgent->new;
 my $tx          = $ua->get( $url => { 'X-NinjaBlock-API' => $passphrase });
@@ -23,6 +27,7 @@ if ( my $res = $tx->success ) {
         my $delta  = $now->delta_ms( $latest );
 
         if ( $delta->{ minutes } > 30 ) {
+            print "$location: No updates since $latest.\n";
             my $formatter = DateTime::Format::Strptime->new( pattern => '%e %B %Y, %H:%M' );
             $latest->set_formatter( $formatter );
 
@@ -40,6 +45,7 @@ if ( my $res = $tx->success ) {
 }
 else {
     my $err = $tx->error;
+    print "Error contacting NinjaBlock: $err->{code} $err->{message}.\n";
 
     my $email = Email::Simple->create(
         header => [
