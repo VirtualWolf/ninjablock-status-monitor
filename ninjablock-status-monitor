@@ -11,8 +11,10 @@ use Email::Simple;
 my ($path)      = abs_path($0) =~ m/(.*)ninjablock-status-monitor/i;
 $config         = new Config::Simple("$path/config.ini") or die Config::Simple->error();
 
-my $url         = $config->param('url');
-my $passphrase  = $config->param('ninjablock-api-passphrase');
+my $url         = $config->param('url') or die 'Missing "url" in config.ini';
+my $passphrase  = $config->param('ninjablock-api-passphrase') or die 'Missing "ninjablock-api-passphrase" in config.ini';
+my $from        = $config->param('from-email-address') or die 'Missing "from-email-address" in config.ini';
+my $to          = $config->param('to-email-address') or die 'Missing "to-email-address" in config.ini';
 
 my $ua          = Mojo::UserAgent->new;
 my $tx          = $ua->get( $url => { 'X-NinjaBlock-API' => $passphrase });
@@ -33,9 +35,9 @@ if ( my $res = $tx->success ) {
 
             my $email = Email::Simple->create(
                 header => [
-                    To      => 'user@example.com',
-                    From    => 'ninjablock@example.com',
-                    Subject => "$location: No updates since $latest.",
+                    To      => $to,
+                    From    => $from,
+                    Subject => "[NINJABLOCK] $location: No updates since $latest.",
                 ],
                 body        => "Uh oh.\n", );
 
@@ -49,9 +51,9 @@ else {
 
     my $email = Email::Simple->create(
         header => [
-            To      => 'user@example.com',
-            From    => 'ninjablock@example.com',
-            Subject => "Error contacting API: $err->{code} $err->{message}",
+            To      => $to,
+            From    => $from,
+            Subject => "[NINJABLOCK] Error contacting API: $err->{code} $err->{message}",
         ],
         body => "Uh oh.\n", );
         sendmail ( $email );
